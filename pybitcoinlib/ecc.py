@@ -239,7 +239,7 @@ class S256Point(Point):
         h160 = self.hash160(compressed)
 
         if testnet:
-            prefix = b"\6f"
+            prefix = b"\06f"
         if not testnet:
             prefix = b"\x00"
         
