@@ -3,6 +3,7 @@ import requests
 from io import BytesIO
 from hash import *
 from util import *
+from script import *
 
 class TxFetcher:
     cache = {}
