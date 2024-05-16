@@ -18,7 +18,7 @@ class TxFetcher:
     @classmethod
     def fetch(cls, txid, testnet=False, fresh=False):
         if fresh or (txid not in cls.cache):
-            url = "{}/tx/{}".format(cls.get_url(testnet), txid)
+            url = "{}/tx/{}.hex".format(cls.get_url(testnet), txid)
             response = requests.get(url)
 
             try:
@@ -33,7 +33,7 @@ class TxFetcher:
             else:
                 tx = Tx.parse(BytesIO(raw), testnet=testnet)
 
-            if tx.id != txid:
+            if tx.id() != txid:
                 raise ValueError("different id's: {} != {}".format(tx.id(), txid))
             
             cls.cache[txid] = tx
@@ -77,6 +77,7 @@ class TxIn:
     def __repr__(self):
         return "{}:{}".format(self.prev_tx.hex(), self.prev_index)
     
+    @classmethod
     def parse(cls, stream):
         '''reads a byte stream, parses it into a transaction input and returns a TxIn object'''
 
@@ -195,11 +196,12 @@ class Tx:
         result += encode_varint(len(self.tx_ins))
         for tx_in in self.tx_ins:
             result += tx_in.serialize()
-            result += encode_varint(len(self.tx_outs))
 
+        result += encode_varint(len(self.tx_outs))
         for tx_out in self.tx_outs:
             result += tx_out.serialize()
-            result += int_to_little_endian(self.locktime, 4)
+
+        result += int_to_little_endian(self.locktime, 4)
 
         return result
     
@@ -213,3 +215,49 @@ class Tx:
             output_sum += tx_out.amount
 
         return (input_sum - output_sum)
+
+    def sig_hash(self, input_index):
+        s = int_to_little_endian(self.version, 4)
+
+        s += encode_varint(len(self.tx_ins))
+        for i, tx_in in enumerate(self.tx_ins):
+            if i == input_index:
+                s += TxIn(
+                    prev_tx=tx_in.prev_tx,
+                    prev_index=tx_in.prev_index,
+                    script_sig=tx_in.script_pubkey(self.testnet),
+                    sequence=tx_in.sequence,
+                ).serialize()
+            else:
+                s += TxIn(
+                    prev_tx=tx_in.prev_tx,
+                    prev_index=tx_in.prev_index,
+                    sequence=tx_in.sequence,
+                ).serialize()
+
+        s += encode_varint(len(self.tx_outs))
+        for tx_out in self.tx_outs:
+            s += tx_out.serialize()
+        
+        s += int_to_little_endian(self.locktime, 4)
+        s += int_to_little_endian(SIGHASH_ALL, 4)
+
+        h256 = hash256(s)
+
+        return int.from_bytes(h256, "big")
+    
+    def verify_input(self, input_index):
+        tx_in = self.tx_ins[input_index]
+        script_pubkey = tx_in.script_pubkey(testnet=self.testnet)
+        z = self.sig_hash(input_index)
+        combined = tx_in.script_sig + script_pubkey
+        # eval the script
+        return combined.evaluzte(z)
+    
+    def sign_input(self, input_index, privkey):
+        z = self.sig_hash(input_index)
+        der = privkey.sign(z).der()
+        sig = der + SIGHASH_ALL.to_bytes(1, "big")
+        sec = privkey.point.sec()
+        self.tx_ins[input_index].script_sig = Script([sig, sec])
+        return self.verify_input(input_index)

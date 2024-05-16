@@ -701,7 +701,6 @@ def op_checkmultisig(stack, z):
         for sig in sigs:
             # if we have no more points, signatures are no good
             if len(points) == 0:
-                LOGGER.info("signatures no good or not in right order")
                 return False
             # we loop until we find the point which works with this signature
             while points:
