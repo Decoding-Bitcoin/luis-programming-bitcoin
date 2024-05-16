@@ -1,3 +1,5 @@
+from io import BytesIO
+
 from util import *
 from op import *
 
@@ -127,6 +129,25 @@ class Script:
             
             else:
                 stack.append(cmd)
+                if len(cmds) == 3 and cmds[0] == 0xa9 \
+                    and type(cmds[1]) == bytes and len(cmds[1]) == 20 \
+                    and cmds[2] == 0x87:
+                    cmds.pop()
+                    h160 = cmds.pop()
+                    cmds.pop()
+                    if not op_hash160(stack):
+                        return False
+                    
+                    stack.append(h160)
+
+                    if not op_equal(stack):
+                        return False
+                    if not op_verify(stack):
+                        return False
+                    
+                    redeem_script = encode_varint(len(cmd)) + cmd
+                    stream = BytesIO(redeem_script)
+                    cmds.extend(Script.parse(stream).cmds) 
 
         # an empty stack evals to false
         if len(stack) == 0:

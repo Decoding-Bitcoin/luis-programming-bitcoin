@@ -1,3 +1,5 @@
+from base58 import *
+
 SIGHASH_ALL = 1
 SIGHASH_NONE = 2
 SIGHASH_SINGLE = 3
@@ -41,3 +43,17 @@ def encode_varint(i):
         return bytes([0xff]) + int_to_little_endian(i, 8)
     else:
         raise ValueError("integer {} is too large".format(i))
+    
+def h160_to_p2pkh_address(h160, testnet=False):
+    if testnet:
+        prefix = b'\x6f'
+    else:
+        prefix = b'\x00'
+    return encode_base58_checksum(prefix + h160)
+
+def h160_to_p2sh_address(h160, testnet=False):
+    if testnet:
+        prefix = b'\xc4'
+    else:
+        prefix = b'\x05'
+    return encode_base58_checksum(prefix + h160)
