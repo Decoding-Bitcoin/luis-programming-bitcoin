@@ -258,6 +258,7 @@ class Tx:
             redeem_script = None
         z = self.sig_hash(input_index, redeem_script)
         combined = tx_in.script_sig + script_pubkey
+
         # eval the script
         return combined.evaluate(z)
     
@@ -267,4 +268,20 @@ class Tx:
         sig = der + SIGHASH_ALL.to_bytes(1, "big")
         sec = privkey.point.sec()
         self.tx_ins[input_index].script_sig = Script([sig, sec])
+
         return self.verify_input(input_index)
+    
+    def is_coinbase(self):
+        if len(self.tx_ins) != 1:
+            return False
+        
+        if self.tx_ins[0].prev_tx != 0x0000000000000000000000000000000000000000000000000000000000000000:
+            return False
+        
+        if self.tx_ins[0].prev_index != 0xffffffff:
+            return False
+        
+        return True
+    
+    def coinbase_height(self):
+        return little_endian_to_int(self.tx_ins[0].script_sig.cmds[0])
