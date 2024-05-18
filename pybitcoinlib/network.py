@@ -1,7 +1,8 @@
 import socket
-from util import *
 import time
 from random import randint
+from util import *
+from block import Block
 
 NETWORK_MAGIC = b'\xf9\xbe\xb4\xd9'
 TESTNET_NETWORK_MAGIC = b'\x0b\x11\x09\x07'
@@ -59,6 +60,7 @@ class NetworkEnvelope:
     def serialize(self):
         result = self.magic
         result += self.command + b"\x00" * (12 - len(self.command))
+        result += int_to_little_endian(len(self.payload), 4)
         result += hash256(self.payload)[:4]
         result += self.payload
         return result
@@ -258,3 +260,27 @@ class HeadersMessage:
             if num_txs != 0:
                 raise RuntimeError('number of txs not 0')
         return cls(blocks)
+    
+class GetDataMessage:
+    command = b'getdata'
+
+    def __init__(self):
+        self.data = []
+
+    def add_data(self, data_type, identifier):
+        self.data.append((data_type, identifier))
+
+    def serialize(self):
+        result = encode_varint(len(self.data))
+        for data_type, identifier in self.data:
+            result += int_to_little_endian(data_type, 4)
+            result += identifier[::-1]
+        return result
+    
+class GenericMessage:
+    def __init__(self, command, payload):
+        self.command = command
+        self.payload = payload
+
+    def serialize(self):
+        return self.payload

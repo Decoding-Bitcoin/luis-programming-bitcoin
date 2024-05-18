@@ -1,13 +1,14 @@
 from util import *
 
 class Block:
-    def __init__(self, version, prev_block, merkle_root, timestamp, bits, nonce):
+    def __init__(self, version, prev_block, merkle_root, timestamp, bits, nonce, tx_hashes=None):
         self.version = version
         self.prev_block = prev_block
         self.merkle_root = merkle_root
         self.timestamp = timestamp
         self.bits = bits
         self.nonce = nonce
+        self.tx_hashes = tx_hashes
 
     # read a byte stream into a Block instance
     @classmethod
@@ -51,3 +52,9 @@ class Block:
         sha = hash256(self.serialize())
         proof = little_endian_to_int(sha)
         return proof < self.target()
+    
+    def validate_merkle_root(self):
+        # swap endianess
+        hashes = [h[::-1] for h in self.hashes]
+        root = merkle_root(hashes)
+        return root[::-1] == self.merkle_root

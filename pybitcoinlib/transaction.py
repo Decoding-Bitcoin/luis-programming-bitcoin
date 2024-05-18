@@ -44,7 +44,9 @@ class TxFetcher:
     
     @classmethod
     def load_cache(cls, filename):
-        disk_cache = json.loads(open(filename, 'r').read())
+        with open(filename, 'r') as file:
+            disk_cache = json.loads(file.read())
+            
         for k, raw_hex in disk_cache.items():
             raw = bytes.fromhex(raw_hex)
             if raw[4] == 0:
